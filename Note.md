@@ -82,3 +82,252 @@ Client Components里面也可以import其他的Client Compinents
 允许NextJs避免重复API请求或数据库查询，从而提高性能，减少服务器负担，确保数据只被请求一次。
 
 简单来说就是：如果多个组件或请求使用相同的数据，Memorization让它们共用一个请求结果，而不是多次请求api。
+
+## Fast Api
+
+### 运行项目的步骤
+
+```python
+//首先进入虚拟环境
+.\env\Scripts\activate
+//运行整个程序
+uvicorn main:app
+```
+
+### 引入Swagger应用来测试路由
+
+Swagger是一个用于API设计，开发，测试和文档生成的开源框架，他帮助开发者规范化api的描述，并提供直观的ui界面。
+
+### 基本的调用api的方法
+
+```python
+from fastapi import FastAPI
+ app = FastAPI()
+
+//规定对应的路由
+@app.get("/")
+async def root():
+    return {"message":"Hello wordl"}
+
+
+@app.post("/")
+async def post():
+    return {"message":"Hello wordl"}
+
+@app.put("/")
+async def put():
+    return .....
+
+//带参数的router
+@app.get("/users/{user_id}")
+async def list_users(user_id:str):
+    return {"user_id":user_id}
+
+
+//带变量的
+//在开头要使用from enum import Enum
+class FoodEnum(str,Enum):
+    fruits = "fruits"
+    vegetables = "vegetables"
+    dairy = "dairy"
+
+@app.get("/foods/{food_name}")
+async def get_food(food_name:FoodEnum):
+    if food_name == FoodEnum.vegetables:
+        return {"food_name":food_name,
+                "message":"you are healthy"}
+    if food_name.value == "fruits":
+        return{
+            "food_name":food_name,
+            "message":"you are still healthy,but like sweet things",   
+        }
+    return {"food_name":food_name,
+            "message":"i like chocolate milk"}
+```
+
+### 查询参数
+
+```python
+//首先随便定义一个数据
+fake_items_db = [{"item_name":"Foo"},{"item_name":"Bar"},{"item_name":"Baz"}]
+//使用切片来循环输出这个数据
+@app.get("/items")
+async def list_items(skip:int=0,limit:int=10):
+    return fake_items_db[skip:skip+limit]
+
+@app.get("/items/{item_id}")
+async def get_item(item_id:str,q:Optional[str]=None,short:bool=False):
+    item ={"item_id":item_id}
+
+    if q:
+        item.update({"q":q})
+    if not short:
+        item.update(
+            {
+                "description":"11111111"
+            }
+        )
+    return item
+
+@app.get("/users/{user_id}/items/{item_id}")
+async def get_user_item(item_id:str,user_id:str,q:Optional[str]=None,short:bool=False):
+    item = {"item_id":item_id,"Owner_id":user_id}
+    if q:
+        item.update({"q":q})
+    if not short:
+        item.update(
+            {
+                "description":"sssssssssssssss"
+            }
+        )
+    return  item
+```
+
+这些参数中，如果有在路径中的参数那就是“必须填写的“数据，如果一些数据也没有默认值，则它也是属于”必须填写的“，其他的有默认值并且不在路径中体现出来的就属于”可选的“
+
+### Request Body
+
+```python
+class Item(BaseModel):
+    name:str
+    description:Optional[str]=None
+    price:float
+    tax:Optional[float]=None
+
+
+@app.post("/items")
+async def create_item(item:Item):
+    item_dict = item.dict()
+    if item.tax:
+        price_with_tax = item.price + item.tax
+        item_dict.update({"price_with_tax":price_with_tax})
+    return item_dict  
+
+
+# **item.dict() 解包了 item.dict() 的键值对，并把它们合并到 return 的字典中。
+@app.put("/items/{item_id}")
+async def create_item_with_put(item_id:int,item:Item,q:Optional[str]=None):
+    result = {"item_id":item_id,**item.dict()}
+    if q:
+        result.update({"q":q})
+    return result
+```
+
+Request Body 和Query Parameters的区别
+
+| **特性**       | **Request Body (`POST` 方法，使用 Pydantic Model)** | **Query Parameters (`GET` 方法，直接作为函数参数)** |
+| ------------ | ---------------------------------------------- | ---------------------------------------- |
+| **数据来源**     | 来自 HTTP **请求体（Body）**                          | 来自 URL **查询参数（Query Params）**            |
+| **HTTP 方法**  | 适用于 `POST`、`PUT`、`PATCH` 请求                    | 适用于 `GET` 请求                             |
+| **传输方式**     | **JSON 格式**                                    | **URL 查询字符串**                            |
+| **适用场景**     | 发送复杂数据，比如 JSON 对象                              | 发送简单的键值对数据                               |
+| **是否可以嵌套数据** | ✅ **支持嵌套对象**                                   | ❌ 只支持简单的键值对                              |
+| **数据大小**     | **可以传输较大数据**                                   | **通常传输少量数据**（受 URL 长度限制）                 |
+
+两者各自的合适使用阶段
+
+| **场景**          | **使用 `Request Body` (`POST`)** | **使用 `Query Parameters` (`GET`)** |
+| --------------- | ------------------------------ | --------------------------------- |
+| 传输大量数据          | ✅ **适合**                       | ❌ **不适合**                         |
+| 传输结构化 JSON      | ✅ **适合**                       | ❌ **不适合**                         |
+| 传输简单参数          | ❌ **不适合**                      | ✅ **适合**                          |
+| 需要数据更新          | ✅ **适合 (`PUT`, `PATCH`)**      | ❌ **不适合**                         |
+| 适用于 RESTful API | ✅ `POST /items`                | ✅ `GET /items?name=Laptop`        |
+
+### Query parameters and String Validation
+
+在FastApiz中 可以使用Query()来定义和验证查询参数：
+
+- 最小/最大长度（min_length/max_length)
+
+- 正则表达式
+
+- 默认值
+
+- 必须提供的参数等等
+
+#### 使用Query来设置默认值和验证规则：
+
+```python
+from fastapi import FastAPI,Query
+
+
+app = FastAPI()
+
+@app.get("/items/")
+async def read_items(q:str = Query("default_value",min_length=3,max_length=9)):
+    return {"q":q}
+
+#也可以让q变为可选参数
+@app.get("/items/")
+async def read_items(q:str |None = Query(None,min_length=3,max_length=9)):
+    return {"q":q}
+
+#如果想要q必须符合某种模式（比如只能是fixedquery),可以使用regex
+#在下面的情况中q必须等于"fixedquery"
+@app.get("/items/")
+async def read_items(q:str = Query(None,regex="^fixdedquery$")):
+    return {"q":q}
+
+
+#如果想要Query处理多个值（列表）
+@app.get("/items/")
+async def read_items(q:List[str] = Query([])):
+    return {"q":q}
+```
+
+### 路径参数和数字化验证
+
+可以使用Path参数来获取URL中的动态数据，并对其进行数值验证
+
+```python
+# 在路径（url）中定义变量，使用{}包裹
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int):  # `item_id` 必须是 `int`
+    return {"item_id": item_id}
+
+# 使用Path进行数值验证，其中的Path(...）表示item_id是必须的，
+# title = “item ID” 是用来给Swagger UI添加参数描述
+# ge=1和le=1000表示item_id必须1<=id<=1000
+@app.get("/items/{item_id}")
+async def read_item(
+    item_id:int =Path(..., title = "Item ID",ge=1,le=1000)
+):
+    return {"item_id":item_id}
+
+#Path()结合str进行长度验证
+@app.get("/users/{username}")
+async def read_user(username:str = Path(...,min_length=3,max_length=10)):
+    return {"username":username}
+
+#Path()结合regex进行模式匹配
+@app.get("/users/{username}")
+async def read_user(username:str = Path(..., regex = "^[a-zA-Z0-9_-]+$")):
+    return {"username":username}
+
+#Path()结合Query
+@app.get("/items/{item_id}")
+async def read_item(
+    item_id:int = Path(...,ge=1,le=1000).
+    q:str | None =Query(None,min_length=3,max_length=10)
+):
+    return {"item_id":item_id,"q":q}
+```
+
+### 处理多个Body参数
+
+Body可以接受多个参数，并且可以于Path，Query结合使用。
+
+```python
+# 多个body参数（默认情况下，FastApi允许定义多个body参数，但必须使用Body(...)
+# 否则FastAPI会把非Pydantic模型的参数当作查询参数
+from　fastapi import FastAPI, Body
+app = FastAPI()
+@app.post("/items/")
+async def create_item(name:str=Body(...),price:float = Body(...)):
+    return {"name":name,"price":price}
+```
