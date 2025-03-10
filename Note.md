@@ -278,7 +278,9 @@ async def read_items(q:List[str] = Query([])):
 
 ### 路径参数和数字化验证
 
-可以使用Path参数来获取URL中的动态数据，并对其进行数值验证
+可以使用Path参数来获取URL中的动态数据，并对其进行数值验证，
+
+在FastAPI中，Body(...)用于指定某个参数应当从请求体（Body）中解析，name:str = Body(...)表示name这个参数必须从Body中获取，为什么是等号：表示name的默认值是Body(...)，如果Body(...)省略了，FastAPI可能会误认为这是一个查询参数。
 
 ```python
 # 在路径（url）中定义变量，使用{}包裹
@@ -325,9 +327,207 @@ Body可以接受多个参数，并且可以于Path，Query结合使用。
 ```python
 # 多个body参数（默认情况下，FastApi允许定义多个body参数，但必须使用Body(...)
 # 否则FastAPI会把非Pydantic模型的参数当作查询参数
-from　fastapi import FastAPI, Body
+from　fastapi import FastAPI,Body
+from pydantic import BaseModel
+
 app = FastAPI()
 @app.post("/items/")
-async def create_item(name:str=Body(...),price:float = Body(...)):
+async def create_item(name:str = Body(...),price:float = Body(...)):
     return {"name":name,"price":price}
+
+
+#Body和Pydantic相结合的模型
+class Item(BaseModel):
+    name:str
+    price:float
+    description:str | None = None
+
+@app.post("/items/")
+async def create_item(item:Item):
+    return item
+
+#Body+Path+Query
+#可以同时接受Path,Query和Body的数据
+clas Item(BaseModel):
+    name:str
+    price:float
+
+
+@app.post("/items/{item_id}")
+async def create_item(
+    item_id:int = Path(...,title="item ID",ge=1),
+    q:str | None = Query(None,min_length =3,max_length = 10),
+    item:Item = Body(...)
+):
+    return {"item_id":item_id,"q":q,"item":item}
+
+#Body处理多个Pydantic模型
+#可以在Body中处理多个Pydantic模型
+
+class Item(BaseModel):
+    name:str
+    price:float
+
+class User(BaseModel):
+    username:str
+    email:str
+
+@app.post("/orders/")
+async def create_order(
+    item:item = Body(...),
+    user:User = Body(...)
+):
+    return {"item":item,"User":user}
+
+#Body(...,embed=True)嵌套请求体
+# 默认情况下，FatsAPI不需要嵌套item字段，但你可以让item成为一个字段
+@app.post("/items/")
+async def create_item(item:Item = Body(...,embed=True)):
+    return {"item":item}
+```
+
+如果python函数中有出现*,那么就表示在*出现之前的参数是可以位置传递，但*之后的参数就必须使用关键字传递。
+
+关键字调用表示：必须要像这个样：
+
+```python
+def my_function(*, name: str, age: int):
+    print(f"Name: {name}, Age: {age}")
+
+# 正确调用（使用关键字参数）
+my_function(name="Alice", age=25)
+
+# ❌ 错误调用（位置参数）
+my_function("Alice", 25)  # TypeError: my_function() takes 0 positional arguments but 2 were given
+```
+
+### Body+Field
+
+在FastAPI中，我们可以使用Field()来为Pydantic模型中的字段添加额外的验证规则和元数据，类似月Query和Path处理查询参数和路径参数的方式。
+
+Field()的作用：
+
+- 设置默认值
+
+- 添加最小/最大长度限制
+
+- 设置数值范围
+
+- 提供Swagger UI中的描述
+
+- 定义正则表达式匹配
+
+#### Field()的基本用法
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str = Field(..., min_length=3, max_length=50, title="Item Name", description="The name of the item")
+    price: float = Field(..., gt=0, lt=10000, description="Price must be between 0 and 10,000")
+    description: str | None = Field(None, title="Item Description", max_length=200)
+
+@app.post("/items/")
+async def create_item(item: Item):
+    return item
+
+
+#使用Field()限制字符串格式
+class User(BaseModel):
+    username: str = Field(..., min_length=3, max_length=20, regex="^[a-zA-Z0-9_-]+$")
+    email: str = Field(..., regex="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+#指定默认值
+class Order(BaseModel):
+    order_id: int = Field(1001, description="Default order ID")
+    status: str = Field("pending", description="Order status")
+
+#Field()+Query()+Path()综合应用
+class Product(BaseModel):
+    name: str = Field(..., min_length=3, max_length=50, title="Product Name")
+    price: float = Field(..., gt=0, le=5000, description="Product price")
+    stock: int = Field(..., ge=0, le=100, description="Available stock")
+
+@app.post("/products/{product_id}")
+async def create_product(
+    product_id: int = Path(..., title="Product ID", ge=1),
+    category: str = Query(..., min_length=3, max_length=20, alias="product-category"),
+    product: Product = Body(...)
+):
+    return {"product_id": product_id, "category": category, "product": product}
+```
+
+### Nested Models(嵌套模型)
+
+在FastAPI中，你可以在Body里嵌套多个Pydantic模型，这样可以让API结构更加清晰，并且自动进行数据验证。
+
+#### 基本的Nested Model
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List
+app = FastAPI()
+# 定义嵌套模型
+class Item(BaseModel):
+    name: str
+    price: float
+# 定义主模型，嵌套 Item
+class Order(BaseModel):
+    order_id: int
+    items: List[Item]  # 这里 `items` 是 `Item` 模型的 **列表**
+@app.post("/orders/")
+async def create_order(order: Order):
+    return order
+```
+
+#### 多层嵌套
+
+```python
+class Product(BaseModel):
+    name: str
+    price: float
+
+class OrderDetail(BaseModel):
+    quantity: int
+    product: Product  # 这里 `product` 是 `Product` 对象，而不是列表
+
+class Order(BaseModel):
+    order_id: int
+    details: List[OrderDetail]  # `details` 是 `OrderDetail` 的列表
+
+@app.post("/orders/")
+async def create_order(order: Order):
+    return order
+```
+
+#### Field()限制嵌套字段
+
+```python
+class Product(BaseModel):
+    name: str = Field(..., min_length=3, max_length=50)
+    price: float = Field(..., gt=0)
+
+class OrderDetail(BaseModel):
+    quantity: int = Field(..., gt=0, le=100)
+
+class Order(BaseModel):
+    order_id: int
+    details: List[OrderDetail]
+
+@app.post("/orders/")
+async def create_order(order: Order):
+    return order
+```
+
+#### Optional 处理可选嵌套字段
+
+```python
+class User(BaseModel):
+    username: str
+    email: str
+    address: Optional[str] = None  # `address` 是可选字段
 ```
