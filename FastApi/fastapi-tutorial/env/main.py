@@ -1,9 +1,23 @@
 # from enum import Enum
 # from typing import Optional,List,Literal
 # from fastapi import FastAPI,Query,Path,Body,Cookie,Header
-# from pydantic import BaseModel
 # from uuid import UUID
 # from datetime import datetime,timedelta,time
+from fastapi import (
+    FastAPI,
+    Form,
+    File,
+    UploadFile,
+    Depends,
+    Body,
+    Header,
+    HTTPException)
+from pydantic import BaseModel
+from fastapi.responses import HTMLResponse
+from fastapi.security import OAuth2PasswordBearer
+
+app = FastAPI()
+
 
 # app = FastAPI()
 
@@ -318,10 +332,6 @@
 
 # Part 16-File
 
-from fastapi import FastAPI, Form,File,UploadFile
-from pydantic import BaseModel
-from fastapi.responses import HTMLResponse
-app = FastAPI()
 
 # @app.post("/login/")
 # async def login(
@@ -382,3 +392,89 @@ app = FastAPI()
 
 
 # part 18 -Request Forms and Files
+
+## Part22-Dependencise Intro
+# def common_parameters(q:str | None = None,skip:int=0,limit:int=100):
+#     return {"q":q,"skip":skip,"limit":limit}
+
+# @app.get("/items/")
+# async def read_items(commons:str = Depends(common_parameters)):
+#     return commons
+
+# @app.get("/users/")
+# async def read_users(commons:dict = Depends(common_parameters)):
+#     return commons
+
+#Part 23: classes as Dependencies
+
+# fake_items_db = [
+#     {"item_name":"foo"},
+#     {"item_name":"Bar"},
+#     {"item_name":"Baz"}
+# ]
+
+# class CommonQueryParams:
+#     def __init__(self,q:str | None=None,skip:int = 0,limit:int=100,item_id:int=0):
+#         self.q = q
+#         self.skip = skip
+#         self.limit = limit
+#         self.item_id = item_id
+
+
+# @app.get("/items/")
+# async def read_items(commons:CommonQueryParams = Depends(CommonQueryParams)):
+#     response = {}
+#     if commons.q:
+#         response.update({"q":commons.q})
+#     items = fake_items_db[commons.skip:commons.skip + commons.limit]
+#     response.update({"items":items})
+#     return response
+
+# Part24 Sub-Dependencies
+# def query_extractor(q:str |None = None):
+#     return q
+
+# def query_or_body_extractor(
+#         q:str = Depends(query_extractor),last_query:str | None = Body(None)
+# ):
+#     if not q:
+#         return last_query
+#     return q
+
+# @app.post("/item")
+# async def try_query(query_or_body:str = Depends(query_or_body_extractor)):
+#     return {"q_or_body":query_or_body}
+
+#Part 25 Dependencies in path operation decorators, global dependencies
+
+
+# async def verify_token(x_token:str = Header(...)):
+#     if x_token != "fake-super-secret-token":
+#         raise HTTPException(status_code = 400,detail = "X-Token header invalid")
+    
+
+# async def verify_key(x_key:str = Header(...)):
+#     if x_key !="fake-super-secret-key":
+#         raise HTTPException(status_code = 400,detail = "X-Key header invalid")
+#     return x_key
+
+# @app.get("/items",dependencies=[Depends(verify_key),Depends(verify_token)])
+# async def read_items():
+#     return [{"item":"FOO"},{"item":"Bar"}]
+
+#part 26:Security
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "token")
+
+# class User(BaseModel):
+#     username:str
+#     email:str |None = None
+#     full_name:str |None = None
+#     disable:str |None = None
+
+# def fake_decode_token(token):
+#     return User(
+#         username = f"{token}fakedecoded",email="foo@example.com",full_name="Foo Bar"
+#     )
+# @app.get("/items/")
+# async def read_items(token:str = Depends(oauth2_scheme)):
+#     return {"token":token}
