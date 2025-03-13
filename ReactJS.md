@@ -167,105 +167,423 @@ class Greeting extends Component {
 export default Greeting;
 ```
 
-#### Props传递数据
+Render()在类组件中的作用：
+
+- React规定类组件必须包含render()方法，用来返回JSX结构。
+
+- render()方法返回UI，他告诉React该组件该如何渲染。
+
+Export default Welcome的作用：
+
+- 有了这个Export default welcome，我们才可以在其他文件中导入该组件。
+
+## Hooks Update(Hooks 更新)
+
+React Hooks 允许在函数组件中使用状态(useState)和生命周期(useEffect)等功能，而无需使用类组件。
+
+### useState更新状态
+
+useState返回当前状态和更新状态的函数，每次调用更新函数，React会重新渲染组件。
 
 ```js
-class Greeting extends Component {
-  render() {
-    return <h1>Hello, {this.props.name}!</h1>;
-  }
-}
-//使用的组件
-<Greeting name = "Alice"/>
-```
+import { useState } from "react";
+//SetCount(count+1)会触发组件的重新渲染
+function Counter() {
+  const [count, setCount] = useState(0);
 
-#### State组件的内部状态
-
-state用于存储组件内部的可变数据
-
-```js
-class Counter extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { count: 0 };
-  }
-
-  increment = () => {
-    this.setState({ count: this.state.count + 1 });
-  };
-
-  render() {
-    return (
-      <div>
-        <p>Count: {this.state.count}</p>
-        <button onClick={this.increment}>Increment</button>
-      </div>
-    );
-  }
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+     // <button onClick={() => setCount(prevCount => prevCount + 1)}>
+     // Increment
+     //</button>
+    </div>
+  );
 }
 
 export default Counter;
 ```
 
-#### 生命周期方法
+### useEffect更新副作用
+
+useEffect在组件选然后执行副作用（如数据获取，订阅时间）
 
 ```js
-import React, { Component } from "react";
+import { useState, useEffect } from "react";
 
-class Timer extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { seconds: 0 };
-  }
+function Timer() {
+  const [seconds, setSeconds] = useState(0);
 
-  componentDidMount() {
-    this.interval = setInterval(() => {
-      this.setState({ seconds: this.state.seconds + 1 });
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSeconds(prev => prev + 1);
     }, 1000);
-  }
 
-  componentWillUnmount() {
-    clearInterval(this.interval);
-  }
+    return () => clearInterval(interval); // 组件卸载时清除定时器
+  }, []); // 依赖数组为空，仅在组件挂载时运行
 
-  render() {
-    return <p>Timer: {this.state.seconds}s</p>;
-  }
+  return <p>Timer: {seconds}s</p>;
 }
 
 export default Timer;
+```
+
+useEffect的更新规则
+
+- useEffect(() => {...},[])  只运行一次(相当于componentDidMount)
+
+- useEffect(() => {...},[state]) 依赖state变化时运行
+
+- useEffect(() => {...}) 组件每次渲染后都会运行
+
+### useReducer复杂状态更新
+
+对于多个状态或逻辑复杂的更新，可以使用useReducer替代useState
+
+```js
+import { useReducer } from "react";
+
+function reducer(state, action) {
+  switch (action.type) {
+    case "increment":
+      return { count: state.count + 1 };
+    case "decrement":
+      return { count: state.count - 1 };
+    default:
+      return state;
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(reducer, { count: 0 });
+
+  return (
+    <div>
+      <p>Count: {state.count}</p>
+      <button onClick={() => dispatch({ type: "increment" })}>+</button>
+      <button onClick={() => dispatch({ type: "decrement" })}>-</button>
+    </div>
+  );
+}
+
+export default Counter;
+```
+
+## JSX(JavaScript XML)
+
+JSX是React的语法扩展，允许在JavaScript代码编写HTML结构，让UI代码更直观。
+
+### JSX语法
+
+JSX允许直接在JavaScript代码中写HTML：
+
+```js
+const element = <h1>Hello,JSX!</h1>
+//如果要使用普通的JavaScript达到这样的效果的话
+const element = React.createElement("h1",null,"Hello,JSX");
+```
+
+### JSX规则
+
+**必须有一个父元素，必须用单个根标签包裹，或者也可以使用Fragment(<>....</>)代替<div>**
+
+```js
+return(
+    <div>
+        <h1>Hello</h1>
+        <p>World</h1>
+    </div>
+);
+```
+
+**在JSX中使用JavaScript表达式**
+
+JSX允许在{}中写JavaScript表达式：
+
+```js
+const name = "Alice";
+return <h1>Hello,{name}!</h1>;
+
+
+const age = 24;
+return <p>{age >19 ? "Adult":"Minor"}</p>
+```
+
+**JSX中的class需要使用className**
+
+```js
+return <h1 className ="title"> Hello,JSX!</h1>;
+```
+
+**事件绑定**
+
+```js
+function ClickButton(){
+    return <button onClick = {() => alert("Clicked!")}>CLick Me</button>;
+}
+```
+
+**JSX中的style**
+
+JSX的style需要用对象形式写：
+
+```js
+const headingStyle = {color:"blue",fontSize:"24px"};
+return <h1 style={headingStyle}>Style Text</h1>
+```
+
+### JSX组件
+
+```js
+function Welcome(props){
+    return <h1>Welcome,{props.name}!</h1>;
+}
+export default Welcome;
+
+//使用的组件
+<Welcome name="Alice"/>
+```
+
+## Props(属性)
+
+Props(Properties)是React组件的输入参数，用于在**父组件向组组件传递数据**，让组件更加动态和可复用。
+
+### 基本用法
+
+父组件向子组件传递
+
+```js
+function Welcome(props){
+    return <h1>Hello,{props.name}!</h1>;
+}
+export default Welcome;
+//使用组件
+<Welcome name = "Alice">
+```
+
+### 组件传递多个Props
+
+```js
+function UserInfo({name,age}){
+    return (
+    <p>
+    Name:{name},Age:{age}
+    </p>
+);
+}
+```
+
+### Props的默认值
+
+可以使用defaultProps设置默认props
+
+```js
+function Greeting({name = "Guest"}){
+    return <h1>Hello,{name}!</h1>;
+}
+//或者使用defaultProps。如果没有传递name，就会默认显示Guest
+Greeting.defaultProps = {
+    name:"Guest",
+};
 
 ```
 
-#### 事件处理
+### 组件中的children（子元素）
+
+Props.Children用于传递组件内部的内容：
 
 ```js
-class ClickButton extends Component {
+fu
+nction Card({children}){
+    return <div className = "card">{children}</div>;
+}
+//children
+<Card>
+    <h2>Title</h2>
+    <p>This is card content.</p>
+</Card>
+```
+
+### Props是只读的
+
+```js
+function Welcome(props) {
+  props.name = "Bob"; // ❌ 不能修改 props
+  return <h1>Hello, {props.name}!</h1>;
+}
+```
+
+## State(状态)
+
+State是React组件内部的可变数据，用于控制UI的动态变化。useState是React Hook，允许在函数组件中使用state。
+
+### SetState(状态更新)
+
+#### 不能直接修改state
+
+在React类组件中,setState()是唯一正确的方式来更新state，不能直接修改this.state，否则组件不会重新渲染。
+
+```js
+import React,{Component} from "react";
+class Counter extends Component{
+
+    constructor(props){
+        super(props)
+        this.state = {
+            count:0
+        }
+    }
+    increment(){
+// 不可以直接修改state
+// React 指挥在setState()被调用的时候重新渲染组件
+        this.setState({
+            count:this.state.count+1
+        })
+        
+        console.log(this.state.count)
+    }
+
+    render(){
+        return(
+        <div>
+            <div>Counter - {this.state.count}</div>
+            <button onClick={() => this.increment()}>Increment</button>
+        </div>
+        )
+    }
+}
+export default Counter
+```
+
+#### setState()的异步性
+
+如果连续用多次setState()，他不会立即更新State,而是会批量更新。
+
+```js
+increment(){
+    this.setState({count:this.state.count + 1});
+    console.log(this.state.count);//可能不会立即更新
+}
+//所以需要解决方案：使用回调函数
+increment(){
+    this.setState(prevState => ({count:prevState.count + 1}))
+}
+```
+
+#### setState()批量更新
+
+React可能会批量合并多个setState()调用，只有最后一次生效
+
+```js
+increment() {
+  this.setState({ count: this.state.count + 1 });
+  this.setState({ count: this.state.count + 1 });
+  this.setState({ count: this.state.count + 1 });
+}
+```
+
+上面的做法最终只会+1，不会+3，因为React优化了批量更新,
+
+下面是正确的做法
+
+```js
+increment() {
+  this.setState(prevState => ({ count: prevState.count + 1 }));
+  this.setState(prevState => ({ count: prevState.count + 1 }));
+  this.setState(prevState => ({ count: prevState.count + 1 }));
+}
+```
+
+### setState处理对象
+
+```js
+this.setState({ user: { name: "Alice", age: 25 } });
+
+
+//更新对象的时候要使用...spread
+//这样就不会丢失对象的其他属性
+this.setState(prevState => ({
+  user: { ...prevState.user, age: 26 }
+}));
+```
+
+## Destructuring props and state（解构赋值和状态）
+
+解构props和state主要就是达到简写的目的
+
+### Prop的解构赋值（简化写法）
+
+```js
+function Welcome({name}){
+    return <h1>Hello,{name}!</h1>;
+}
+```
+
+### State的解构
+
+如果不解构的话 就需要：
+
+```js
+class Profile extends React.Component {
   constructor(props) {
     super(props);
-    this.handleClick = this.handleClick.bind(this);
+    this.state = {
+      name: "Alice",
+      age: 25,
+    };
   }
-
-  handleClick() {
-    alert("Button clicked!");
-  }
-
   render() {
-    return <button onClick={this.handleClick}>Click Me</button>;
+    return (
+      <div>
+        <h1>{this.state.name}</h1>
+        <p>Age: {this.state.age}</p>
+      </div>
+    );
   }
 }
 ```
 
-#### 条件渲染
+解构之后：
 
 ```js
-class Message extends Component {
-  render() {
-    return <p>{this.props.isLoggedIn ? "Welcome back!" : "Please log in."}</p>;
+render() {
+    const { name, age } = this.state; // 解构 state
+    return (
+      <div>
+        <h1>{name}</h1>
+        <p>Age: {age}</p>
+      </div>
+    );
   }
 }
 ```
 
+### 函数组件中解构Props和State
 
+```js
+import { useState } from "react";
+
+function Profile({ name, age }) {
+  const [user, setUser] = useState({ name, age });
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>Age: {user.age}</p>
+    </div>
+  );
+}
+```
+
+## Event Handling
+
+React事件处理方式类似DOM事件，但也有一些不同：
+
+- 使用驼峰命名（camelCase),比如是onClick而不是onclick
+
+- 事件处理函数通常是箭头函数，或者在类组件中使用.bind(this)绑定this
+
+- 事件处理不会默认触发event.preventDefault(),需要手动调用
 
 
