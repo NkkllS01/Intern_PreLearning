@@ -386,7 +386,6 @@ function Greeting({name = "Guest"}){
 Greeting.defaultProps = {
     name:"Guest",
 };
-
 ```
 
 ### 组件中的children（子元素）
@@ -440,7 +439,7 @@ class Counter extends Component{
         this.setState({
             count:this.state.count+1
         })
-        
+
         console.log(this.state.count)
     }
 
@@ -585,5 +584,690 @@ React事件处理方式类似DOM事件，但也有一些不同：
 - 事件处理函数通常是箭头函数，或者在类组件中使用.bind(this)绑定this
 
 - 事件处理不会默认触发event.preventDefault(),需要手动调用
+
+### 事件处理的基本语法
+
+```js
+function ClickButton() {
+  function handleClick() {
+    alert("Button clicked!");
+  }
+
+  return <button onClick={handleClick}>Click Me</button>;
+}
+```
+
+### 事件处理中的this绑定
+
+在类组件中，事件处理方法中的this默认是undefined，需要手动绑定.
+
+在下面的函数中，this.handleClick不加括号的原因是因为不想要在这个组件渲染的时候立即执行，这里的this.clickHandle是一个函数引用。
+
+```js
+class ClickButton extends React.Component {
+  constructor(props) {
+    super(props);
+    this.handleClick = this.handleClick.bind(this); // 绑定 this
+  }
+
+  handleClick() {
+    alert("Button clicked!");
+  }
+
+  render() {
+    return <button onClick={this.handleClick}>Click Me</button>;
+  }
+}
+```
+
+### 传递参数
+
+```js
+function Greeting({ name }) {
+  function sayHello(customMessage) {
+    alert(`${customMessage}, ${name}!`);
+  }
+
+  return <button onClick={() => sayHello("Hello")}>Greet</button>;
+}
+```
+
+### Event 对象
+
+React事件处理函数自动接收event对象。
+
+```js
+function InputBox() {
+  function handleChange(event) {
+    console.log("Input value:", event.target.value);
+  }
+
+  return <input type="text" onChange={handleChange} />;
+}
+```
+
+### Event.preventDefault()
+
+在React必须手动调用event.preventDefault()来阻止默认行为
+
+```js
+function Link() {
+  function handleClick(event) {
+    event.preventDefault(); // 阻止默认跳转
+    alert("Link clicked!");
+  }
+
+  return <a href="https://google.com" onClick={handleClick}>Click Me</a>;
+}
+```
+
+### 事件处理在useState中更新状态
+
+```js
+import { useState } from "react";
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  function increment() {
+    setCount(prev => prev + 1);
+  }
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={increment}>Increment</button>
+    </div>
+  );
+}
+```
+
+## Binding Event Handlers
+
+**为什么要绑定this？**
+
+在类组件中，this默认是undefine，如果不绑定，事件处理函数中的this无法访问state和props
+
+### 绑定this的四种方法：
+
+#### 在Constructor里bind(this)
+
+在构造函数中使用.bind(this)绑定事件处理函数：
+
+```js
+class ClassClick extends Component {
+  constructor() {
+    super();
+    this.state = { message: "Hello" };
+    this.clickHandler = this.clickHandler.bind(this); // ✅ 绑定 this
+  }
+
+  clickHandler() {
+    console.log(this.state.message); // ✅ 现在 this 指向类实例
+  }
+
+  render() {
+    return <button onClick={this.clickHandler}>Click Me</button>;
+  }
+}
+```
+
+#### 使用箭头函数
+
+onClick={() => this.clickHandler()}，在onClick内部用箭头函数调用clickHandler:
+
+```js
+class ClassClick extends Component {
+  constructor() {
+    super();
+    this.state = { message: "Hello" };
+  }
+
+  clickHandler() {
+    console.log(this.state.message);
+  }
+
+  render() {
+    return <button onClick={() => this.clickHandler()}>Click Me</button>;
+  }
+}
+```
+
+#### 在Render()里.bind(this)
+
+```js
+class ClassClick extends Component {
+  constructor() {
+    super();
+    this.state = { message: "Hello" };
+  }
+
+  clickHandler() {
+    console.log(this.state.message);
+  }
+
+  render() {
+    return <button onClick={this.clickHandler.bind(this)}>Click Me</button>;
+  }
+}
+```
+
+#### 使用箭头函数定义事件处理器
+
+最佳的方式
+
+```js
+class ClassClick extends Component {
+  constructor() {
+    super();
+    this.state = { message: "Hello" };
+  }
+
+  // ✅ 直接使用箭头函数，自动绑定 this
+  clickHandler = () => {
+    console.log(this.state.message);
+  };
+
+  render() {
+    return <button onClick={this.clickHandler}>Click Me</button>;
+  }
+}
+```
+
+## Methods as props
+
+在React中，父组件可以将方法作为props传递给子组件。
+
+- 子组件可以通知父组件发生了某些事件（比如按钮点击，表单提交）
+
+- 父组件可以控制子组件的行为，如更新state
+
+### 基本用法
+
+```js
+import React, { Component } from 'react'
+import ChildComponent from './ChildComponent'
+
+class ParentComponent extends Component {
+    constructor(props){
+        super(props)
+        this.state = {
+            parentName:"Parent"
+        }
+        this.greetParent = this.greetParent.bind(this)
+    }
+    greetParent(childName){
+        alert(`Hello ${this.state.parentName} from ${childName}`)
+    }
+  render() {
+    return (
+      <div>
+        <ChildComponent greetHandler = {this.greetParent}/>
+      </div>
+    )
+  }
+}
+
+export default ParentComponent
+//ChildComponent
+function ChildComponent(props) {
+  return (
+    <div>
+      <button onClick ={() => props.greetHandler('child')} >Greet Parent</button>
+    </div>
+  )
+}
+export default ChildComponent
+```
+
+## Conditional Rendering(条件渲染)
+
+条件渲染允许组件根据不同的状态（state)或者props动态的渲染UI。
+
+### 使用if语句
+
+```js
+class UserGreeting extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isLoggedIn: false,
+    };
+  }
+
+  render() {
+    if (this.state.isLoggedIn) {
+      return <h1>Welcome back!</h1>;
+    } else {
+      return <h1>Please log in</h1>;
+    }
+  }
+}
+
+export default UserGreeting;
+```
+
+### 使用三元运算符（？：）
+
+```js
+class UserGreeting extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isLoggedIn: false,
+    };
+  }
+
+  render() {
+    return (
+      <div>
+        {this.state.isLoggedIn ? <h1>Welcome back!</h1> : <h1>Please log in</h1>}
+      </div>
+    );
+  }
+}
+
+export default UserGreeting;
+```
+
+### 使用&&(短路运算符)
+
+```js
+//只需要在true的时候显示某个内容，可以使用&&
+// 只用在true的时候显示内容，false的时候不用显示
+class UserGreeting extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      isLoggedIn: true,
+    };
+  }
+
+  render() {
+    return (
+      <div>
+        <h1>Welcome to the site!</h1>
+        {this.state.isLoggedIn && <h2>Enjoy your stay.</h2>}
+      </div>
+    );
+  }
+}
+```
+
+### S witch case处理多种情况
+
+```js
+class UserGreeting extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      status: "guest", // 可选值: 'guest', 'user', 'admin'
+    };
+  }
+
+  render() {
+    let message;
+    switch (this.state.status) {
+      case "user":
+        message = <h1>Welcome back, user!</h1>;
+        break;
+      case "admin":
+        message = <h1>Welcome back, admin!</h1>;
+        break;
+      default:
+        message = <h1>Welcome, guest! Please log in.</h1>;
+    }
+
+    return <div>{message}</div>;
+  }
+}
+```
+
+### 结合map()进行列表渲染
+
+map()常用于遍历数组并渲染列表，他是JavaScript的数组方法，对数组的每个元素执行操作，并返回一个新的数组。
+
+```js
+const number = [1,2,3,4,5];
+const doubled = numbers.map(num =>num*2);
+console.log(doubled);//输出：[2,4,6,8,10]
+```
+
+```js
+class ItemList extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      items: ["Apple", "Banana", "Orange"],
+    };
+  }
+
+  render() {
+    return (
+      <ul>
+        {this.state.items.length > 0 ? (
+          this.state.items.map((item, index) => <li key={index}>{item}</li>)
+        ) : (
+          <p>No items available</p>
+        )}
+      </ul>
+    );
+  }
+}
+```
+
+## List and Keys
+
+列表动态渲染多个元素，而key属性用于唯一标识列表项，让React在更新的时候更加高效。
+
+## Index as Key Anti-pattern
+
+不推荐使用index作为key，因为在React中，key需要唯一且稳定，但是使用index作为key可能会导致UI问题，渲染错误和性能问题。
+
+**删除或插入项时UI可能出错**
+
+列别项时可变的（用户可以删除或插入新项），使用index可能导致复用错误的DOM元素。
+
+**输入到输入框时可能出错**
+
+## Styling and CSS Basics(React中的样式和CSS基础)
+
+在React中，有多种方式来给组件添加样式，常见的有：
+
+- 普通的CSS文件
+
+- 内联样式（Inline Style)
+
+- CSS模块（CSS Modules)
+
+- Style Components(CSS-in-JS方案)
+
+- Tailwind CSS(实用类CSS框架)
+
+### 普通的CSS文件
+
+最常见的方式，在App.css或其他的CSS文件中编写样式
+
+在App.css或Component.css里定义样式，然后在组件里引入CSS文件
+
+```js
+/* styles.css */
+.container {
+  background-color: lightblue;
+  padding: 20px;
+  border-radius: 5px;
+}
+/*模块文件*/
+import React from "react";
+import "./styles.css"; // ✅ 引入 CSS 文件
+
+function App() {
+  return <div className="container">Hello, React!</div>;
+}
+
+export default App;
+```
+
+### 内联样式（Inline Style)
+
+直接在JSX里写Style,样式用对象格式
+
+```js
+function App() {
+  const headingStyle = {
+    color: "blue",
+    fontSize: "24px",
+    textAlign: "center"
+  };
+
+  return <h1 style={headingStyle}>Hello, React!</h1>;
+}
+```
+
+### CSS模块（CSS Modules）
+
+解决了全局CSS冲突，每个组件的样式是独立的
+
+创建APP.module.css
+
+```js
+/* App.module.css */
+.container {
+  background-color: lightgreen;
+  padding: 20px;
+  text-align: center;
+  border-radius: 5px;
+}
+```
+
+在App.js中引入CSS模块
+
+```js
+import React from "react";
+import styles from "./App.module.css"; // ✅ styles 作为对象导入
+
+function App() {
+  return <div className={styles.container}>Hello, React!</div>;
+}
+
+export default App;
+```
+
+### Style Components(CSS-in-JS)
+
+适用于组件级别的样式，样式于组件绑定（需要安装Style Components)
+
+```js
+import styled from "styled-components";
+
+const Button = styled.button`
+  background-color: blue;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+`;
+
+function App() {
+  return <Button>Click Me</Button>;
+}
+
+export default App;
+```
+
+### Tailwind CSS
+
+快速开发UI，使用实用类
+
+无需写出CSS文件 直接在className中使用Tailwind的类名
+
+## Basics of Form Handling
+
+在React中，表单处理和普通的html表单略有不同，因为React组件需要控制表单数据的状态（state）
+
+### 受控组件（Controlled Components)
+
+在React中，表单输入通常是受控组件，即输入值受state控制
+
+```js
+import React, { useState } from "react";
+
+function Form() {
+  const [name, setName] = useState("");
+
+  function handleChange(event) {
+    setName(event.target.value); // ✅ 更新 `state`
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault(); // ✅ 防止页面刷新
+    alert(`Submitted Name: ${name}`);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>Name: </label>
+      <input type="text" value={name} onChange={handleChange} />
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+
+export default Form;
+```
+
+### 处理多个输入字段
+
+如果有多个输入框，可以用一个state管理多个值
+
+```js
+import React, { useState } from "react";
+
+function MultiInputForm() {
+  const [formData, setFormData] = useState({
+    username: "",
+    email: ""
+  });
+
+  function handleChange(event) {
+    const { name, value } = event.target; // ✅ 获取 `name` 和 `value`
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value // ✅ 只更新当前输入框的值
+    }));
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    alert(`Username: ${formData.username}, Email: ${formData.email}`);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>Username: </label>
+      <input type="text" name="username" value={formData.username} onChange={handleChange} />
+
+      <label>Email: </label>
+      <input type="email" name="email" value={formData.email} onChange={handleChange} />
+
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+
+export default MultiInputForm
+```
+
+### 处理下拉框
+
+```js
+function SelectForm() {
+  const [fruit, setFruit] = useState("apple");
+
+  function handleChange(event) {
+    setFruit(event.target.value);
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    alert(`Selected: ${fruit}`);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>Choose a fruit:</label>
+      <select value={fruit} onChange={handleChange}>
+        <option value="apple">Apple</option>
+        <option value="banana">Banana</option>
+        <option value="orange">Orange</option>
+      </select>
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+### 处理复选框
+
+```js
+function CheckboxForm() {
+  const [isChecked, setIsChecked] = useState(false);
+
+  function handleChange(event) {
+    setIsChecked(event.target.checked); // ✅ `checked` 适用于 `checkbox`
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    alert(`Checked: ${isChecked}`);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>
+        <input type="checkbox" checked={isChecked} onChange={handleChange} />
+        Accept Terms
+      </label>
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+### 处理单选按钮
+
+```js
+function RadioForm() {
+  const [gender, setGender] = useState("");
+
+  function handleChange(event) {
+    setGender(event.target.value);
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    alert(`Selected Gender: ${gender}`);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>
+        <input type="radio" name="gender" value="Male" onChange={handleChange} /> Male
+      </label>
+      <label>
+        <input type="radio" name="gender" value="Female" onChange={handleChange} /> Female
+      </label>
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+### 处理文本区域
+
+```js
+function TextAreaForm() {
+  const [message, setMessage] = useState("");
+
+  function handleChange(event) {
+    setMessage(event.target.value);
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    alert(`Message: ${message}`);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>Message:</label>
+      <textarea value={message} onChange={handleChange} />
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+
+```
 
 
