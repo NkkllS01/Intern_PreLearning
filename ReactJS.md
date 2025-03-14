@@ -1090,6 +1090,12 @@ export default App;
 
 在React中，表单输入通常是受控组件，即输入值受state控制
 
+其中的useState是用于创建组件的状态变量
+
+name-->状态变量,存储当前选中的名字（初始值为“ ”)
+
+setFruit-->更新fruit状态的函数（用于修改fruit的值）
+
 ```js
 import React, { useState } from "react";
 
@@ -1160,6 +1166,14 @@ export default MultiInputForm
 ```
 
 ### 处理下拉框
+
+event代表触发事件的对象，而event.target指向事件的目标元素(即发生事件的html元素)
+
+- event ->事件对象，存储了事件的详细信息
+
+- event.target ->触发事件的元素（这里是<select>）
+
+- event.target.value ->获取<select>选中的值
 
 ```js
 function SelectForm() {
@@ -1267,7 +1281,177 @@ function TextAreaForm() {
     </form>
   );
 }
-
 ```
+
+## Component Lifecycle Methods
+
+ 在React类组件中，组件有生命周期方法，用于在组件挂载(Mount)，更新(Update)和卸载(Unmount)时执行特定操作。
+
+### 组件的生命周期阶段
+
+React组件的生命周期分为三个阶段：
+
+- 挂载(Mounting):组件被创建并插入DOM
+
+- 更新(Updating):组件的state或props发生变化，触发重新渲染
+
+- 卸载(Unmounting):组件从DOM中移除
+
+- 处理错误(Error Handling): 渲染时遇到了错误
+
+### 挂载阶段(Mounting)
+
+| 方法                                              | 作用                         |
+| ----------------------------------------------- | -------------------------- |
+| `constructor()`                                 | 初始化 `state` 和绑定事件          |
+| `static getDerivedStateFromProps(props, state)` | 根据 `props` 更新 `state`（不常用） |
+| `render()`                                      | 返回 JSX，渲染 UI               |
+| `componentDidMount()`                           | 组件挂载后执行（常用于 API 请求、订阅事件）   |
+
+### 更新阶段(Updating)
+
+| 方法                                                   | 作用                         |
+| ---------------------------------------------------- | -------------------------- |
+| `static getDerivedStateFromProps(props, state)`      | 根据 `props` 更新 `state`（不常用） |
+| `shouldComponentUpdate(nextProps, nextState)`        | 控制组件是否重新渲染（优化性能）           |
+| `render()`                                           | 重新渲染 UI                    |
+| `getSnapshotBeforeUpdate(prevProps, prevState)`      | 获取更新前的 DOM 状态              |
+| `componentDidUpdate(prevProps, prevState, snapshot)` | 组件更新后执行（常用于数据请求、DOM 操作）    |
+
+### 卸载阶段(Unmounting)
+
+| 方法                       | 作用                  |
+| ------------------------ | ------------------- |
+| `componentWillUnmount()` | 组件卸载前执行（清理定时器、事件监听） |
+
+## Fragments(片段)
+
+在React中，Fragments允许在不添加额外DOM元素的情况下，返回多个子元素。
+
+我们不希望额外的<div>,他可能会导致不必要的嵌套。
+
+### 使用React.Fragment
+
+```js
+import React from "react";
+
+function FragmentExample() {
+  return (
+    <React.Fragment>
+      <h1>Title</h1>
+      <p>This is a description.</p>
+    </React.Fragment>
+  );
+}
+
+export default FragmentExample;
+```
+
+### 或者使用短语法<>...</>
+
+```js
+function FragmentShortSyntax() {
+  return (
+    <>
+      <h1>Title</h1>
+      <p>This is a description.</p>
+    </>
+  );
+}
+
+export default FragmentShortSyntax;
+```
+
+### key属性和Fragments
+
+```js
+const items = ["Apple", "Banana", "Orange"];
+
+function List() {
+  return (
+    <React.Fragment>
+      {items.map((item, index) => (
+        <React.Fragment key={index}>
+          <h2>{item}</h2>
+          <p>Fruit item</p>
+        </React.Fragment>
+      ))}
+    </React.Fragment>
+  );
+}
+
+export default List;
+```
+
+## Pure Components
+
+纯组件(pure components)时react自动优化的类组件，它可以减少不必要的重新渲染，同生性能。
+
+### 纯组件的使用
+
+```js
+import React, { PureComponent } from "react";
+
+class PureComponentExample extends PureComponent {
+  render() {
+    console.log("Pure Component Rendered");
+    return <h1>Pure Component: {this.props.name}</h1>;
+  }
+}
+
+export default PureComponentExample;
+```
+
+### 什么时候使用PureComponent
+
+- 列表渲染优化
+
+- 组件props不经常变化
+
+- 数据量大，计算成本高
+
+有时使用PureComponent也会出现问题：
+
+- props/state可能包含对象，数组(浅比较可能导致误判)
+
+- 组件依赖context，但context不会触发PureComponent重新渲染
+
+## Memo(让函数组件变为纯组件)
+
+在React中，React.memo()是一个高阶组件(HOC)，用于优化函数组件的性能，类似于PureComponent,只有props变化时才会重新渲染。
+
+### 基本用法
+
+```js
+import React from 'react';
+
+function MemoComp({ name }) {
+  console.log('Rendering Memo Component');
+  return (
+    <div>
+      {name}
+    </div>
+  );
+}
+export default React.memo(MemoComp);
+```
+
+### Refs(引用)
+
+Refs允许我们直接访问DOM元素或React组件，通常用于：
+
+- 操作DOM(如获取输入框的值，聚焦输入框)
+
+- 与第三方库（如动画库，图标库）交互
+
+- 存储组件实例，避免重新渲染
+
+
+
+
+
+
+
+
 
 
