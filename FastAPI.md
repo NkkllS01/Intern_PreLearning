@@ -2222,12 +2222,11 @@ async def register_user(
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
-    
+
     # 添加后台任务（发送邮件）
     background_tasks.add_task(send_email, user.email)
-    
-    return {"message": "User registered, email will be sent!"}
 
+    return {"message": "User registered, email will be sent!"}
 ```
 
 #### 任务队列（更高级的后台任务）

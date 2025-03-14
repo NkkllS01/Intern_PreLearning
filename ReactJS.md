@@ -1446,11 +1446,132 @@ Refs允许我们直接访问DOM元素或React组件，通常用于：
 
 - 存储组件实例，避免重新渲染
 
+### 在类组件中使用Refs
 
+```js
+import React, { Component } from "react";
 
+class InputFocus extends Component {
+  constructor(props) {
+    super(props);
+    this.inputRef = React.createRef(); // 创建 ref
+  }
 
+  componentDidMount() {
+    this.inputRef.current.focus(); // 组件挂载后自动聚焦
+  }
 
+  handleClick = () => {
+    alert(this.inputRef.current.value); // 直接获取输入框值
+  };
 
+  render() {
+    return (
+      <div>
+        <input type="text" ref={this.inputRef} />
+        <button onClick={this.handleClick}>Get Value</button>
+      </div>
+    );
+  }
+}
+export default InputFocus;
+```
+
+### 在函数组件中使用useRef()
+
+```js
+import React, { useRef, useEffect } from "react";
+
+function InputFocus() {
+  const inputRef = useRef(null); // 创建 ref
+
+  useEffect(() => {
+    inputRef.current.focus(); // 组件挂载后自动聚焦
+  }, []);
+
+  const handleClick = () => {
+    alert(inputRef.current.value);
+  };
+
+  return (
+    <div>
+      <input type="text" ref={inputRef} />
+      <button onClick={handleClick}>Get Value</button>
+    </div>
+  );
+}
+
+export default InputFocus;
+```
+
+### Refs 访问子组件
+
+父组件控制子组件的输入框
+
+```js
+import React, { useRef, forwardRef, useImperativeHandle } from "react";
+
+// 子组件
+const ChildInput = forwardRef((props, ref) => {
+  return <input type="text" ref={ref} />;
+});
+
+// 父组件
+function ParentComponent() {
+  const inputRef = useRef();
+
+  const focusInput = () => {
+    inputRef.current.focus();
+  };
+
+  return (
+    <div>
+      <ChildInput ref={inputRef} />
+      <button onClick={focusInput}>Focus Input</button>
+    </div>
+  );
+}
+
+export default ParentComponent;
+
+```
+
+### useImperativeHandle()自定义暴露方法
+
+用于子组件项只暴露特定方法给父组件,下面的就只会暴露focus()方法
+
+```js
+import React, { useRef, forwardRef, useImperativeHandle } from "react";
+
+const ChildInput = forwardRef((props, ref) => {
+  const inputRef = useRef();
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current.focus();
+    }
+  }));
+
+  return <input type="text" ref={inputRef} />;
+});
+
+function ParentComponent() {
+  const childRef = useRef();
+
+  return (
+    <div>
+      <ChildInput ref={childRef} />
+      <button onClick={() => childRef.current.focus()}>Focus Input</button>
+    </div>
+  );
+}
+
+export default ParentComponent;
+```
+
+## React Portals(传送门)
+
+Protals允许React组件渲染到当前组件树以外的DOM节点，即使它依然在React组件层级中。
 
 
 

@@ -27,7 +27,7 @@ class App extends Component{
   render(){
     return (
       <div className="App">
-        <ParentComp/>
+        {/* <ParentComp/> */}
         {/* <PureComp/> */}
         {/* <FragmentDemo/> */}
         {/* <LifecycleA/> */}
