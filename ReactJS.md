@@ -1533,7 +1533,6 @@ function ParentComponent() {
 }
 
 export default ParentComponent;
-
 ```
 
 ### useImperativeHandle()自定义暴露方法
@@ -1573,6 +1572,673 @@ export default ParentComponent;
 
 Protals允许React组件渲染到当前组件树以外的DOM节点，即使它依然在React组件层级中。
 
+通常：React组件会被渲染在root节点内（比如）：
+
+```js
+<div id= "root">
+    <div>My App</div>
+</div>
+```
+
+但有些情况下我们需要组件渲染在root外的DOM结构，比如：
+
+- 模态框（Modal)
+
+- 工具提示（Tooltip)
+
+- 通知（Toast）
+
+解决方案：使用ReactDOM.createProtal()
+
+### 基本用法
+
+让组件渲染到root之外的DOM结构
+
+```js
+//HTML结构
+<div id="root"></div>
+<div id="portal-root"></div>
+//Modal.js(子组件)
+import React from "react"
+import ReactDOM from "react-dom"
+
+function Modal({children}){
+    return ReactDOM.createProtal(
+    <div className="modal">
+        {children}
+    </div>,
+    document.getElementById("portal-root")
+);
+}
+export default Modal;
+//App.js
+import React, { useState } from "react";
+import Modal from "./Modal";
+
+function App() {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <div>
+      <h1>React Portals Example</h1>
+      <button onClick={() => setShowModal(true)}>Open Modal</button>
+
+      {showModal && (
+        <Modal>
+          <h2>Modal Content</h2>
+          <button onClick={() => setShowModal(false)}>Close</button>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+export default App;
+```
+
+### Portals与事件冒泡
+
+即使Portal组件渲染在root之外，事件依然会沿着React组件树冒泡：
+
+比如：
+
+```js
+function Modal({ children }) {
+  return ReactDOM.createPortal(
+    <div className="modal" onClick={() => console.log("Modal Clicked")}>
+      {children}
+    </div>,
+    document.getElementById("portal-root")
+  );
+}
+```
+
+即使Modal在portal-root，他的onClick事件依然会冒泡到App.js
+
+ps.如果不希望事件冒泡，可以使用stopPropagation()
+
+```js
+<div className="modal" onClick={(e) => e.stopPropagation()}>
+```
+
+## Error Boundary
+
+错误边界时React组件，用于捕获其子组件树中的JavaScript错误，并显示备用UI，而不会导致整个应用崩溃。
+
+### ErrorBoundary的基本用法
+
+error boundary 只能用于类组件，因为它依赖于componentDidCatch()生命周期方法。
+
+1. 创建ErrorBoundary组件
+
+```js
+import React, { Component } from "react";
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    // 更新 state，使下次渲染显示备用 UI
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("Error caught by ErrorBoundary:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <h2>Something went wrong.</h2>; // 备用 UI
+    }
+    return this.props.children;
+  }
+}
+
+export default ErrorBoundary;
+```
+
+2. 在APP.js里使用ErrorBoundary
+
+```js
+import React from "react";
+import ErrorBoundary from "./ErrorBoundary";
+import BuggyComponent from "./BuggyComponent";
+
+function App() {
+  return (
+    <div>
+      <h1>React Error Boundary Example</h1>
+      <ErrorBoundary>
+        <BuggyComponent />
+      </ErrorBoundary>
+    </div>
+  );
+}
+
+export default App;
+
+```
+
+3. BuggyComponent.js
+
+```js
+import React, { Component } from "react";
+
+class BuggyComponent extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { throwError: false };
+  }
+
+  handleClick = () => {
+    this.setState({ throwError: true });
+  };
+
+  render() {
+    if (this.state.throwError) {
+      throw new Error("Oops! Something went wrong.");
+    }
+    return <button onClick={this.handleClick}>Click to trigger error</button>;
+  }
+}
+
+export default BuggyComponent;
+
+
+```
+
+注意：ErrorBoundary只能捕获渲染阶段的错误；生命周期方法中的错误；子组件constuructor()里的错误，它不能捕获事件处理函数中的错误；异步代码；服务端渲染SSR中的错误，自身（ErrorBoundary）组件的错误。
+
+## HOC(Higher Order Components)高阶组件
+
+高阶组件是一种用于复用组件逻辑的模式，它本质上是一个接受组件作为参数，并返回一个新组建的函数。
+
+为什么需要HOC：
+
+有时候我们需要在多个组件中共享相同的逻辑：比如：
+
+- 权限控制
+
+- 日志记录
+
+- 状态管理
+
+- API数据获取
+
+- 增加功能（如计数功能）
+
+### HOC的基本用法
+
+```js
+const withExtraFunctionality = (WrappedComponent) => {
+  return function EnhancedComponent(props) {
+    return <WrappedComponent {...props} />;
+  };
+};
+```
+
+HOC主要做两件事：
+
+1.接收一个组件（wrappedComponent)
+
+2.返回一个新组件EnhancedComponent,可以增强功能
+
+### HOC例子：计数器功能
+
+我们有两个不同的组件ClickCounter和HoverCounter，但他们共享相同的计数逻辑
+
+1.  创建withCoynter.js(HOC组件)
+
+```js
+import React, { useState } from "react";
+
+const withCounter = (WrappedComponent) => {
+  return function EnhancedComponent(props) {
+    const [count, setCount] = useState(0);
+
+    const incrementCount = () => {
+      setCount(count + 1);
+    };
+
+    return <WrappedComponent count={count} incrementCount={incrementCount} {...props} />;
+  };
+};
+
+export default withCounter;
+```
+
+2. clickCounter.js
+
+```js
+import React from "react";
+import withCounter from "./withCounter";
+
+function ClickCounter({ count, incrementCount }) {
+  return <button onClick={incrementCount}>Clicked {count} times</button>;
+}
+
+export default withCounter(ClickCounter); // ✅ 使用 HOC
+```
+
+3. HoverCounter.js
+
+```js
+import React from "react";
+import withCounter from "./withCounter";
+
+function HoverCounter({ count, incrementCount }) {
+  return <h2 onMouseOver={incrementCount}>Hovered {count} times</h2>;
+}
+
+export default withCounter(HoverCounter); // ✅ 使用 HOC
+```
+
+4. 在APP.js中使用
+
+```js
+import React from "react";
+import ClickCounter from "./ClickCounter";
+import HoverCounter from "./HoverCounter";
+
+function App() {
+  return (
+    <div>
+      <h1>React Higher Order Component Example</h1>
+      <ClickCounter />
+      <HoverCounter />
+    </div>
+  );
+}
+
+export default App;
+```
+
+## Render Props(渲染属性模式)
+
+Render Props是React组件复用的一种模式，它允许我们在组件之间共享逻辑，而不是用HOC。
+
+为什么需要Render Props?
+
+在React中，如果多个组件需要共享相同的逻辑(例如state和setState)，可以用：
+
+- HOC(高阶组件)
+
+- Render Props(渲染属性模式)
+
+- Hooks(推荐)
+
+HOC vs Render Props
+
+- HOC：逻辑封装在高阶组件中，返回增强后的组件。
+
+- Render Props：将逻辑封装在组件中，通过props传递redner方法，让子组件自定义UI。
+
+HOC的缺点：
+
+- HOC可能会导致嵌套地狱
+
+- 组件层级可能不容易理解
+
+- Render Props更加灵活，可以随时传递props，避免this绑定问题
+
+### 基本用法
+
+1. Counter.js
+
+```js
+import React, { Component } from "react";
+
+class Counter extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { count: 0 };
+  }
+
+  increment = () => {
+    this.setState(prevState => ({ count: prevState.count + 1 }));
+  };
+
+  render() {
+    return this.props.render(this.state.count, this.increment); // ✅ 通过 `render` 传递 `count` 和 `increment`
+  }
+}
+
+export default Counter;
+```
+
+2. ClickCounter.js点击计数器
+
+```js
+import React from "react";
+import Counter from "./Counter";
+
+function ClickCounter() {
+  return (
+    <Counter render={(count, increment) => (
+      <button onClick={increment}>Clicked {count} times</button>
+    )} />
+  );
+}
+
+export default ClickCounter;
+```
+
+3. HoverCounter.js
+
+```js
+import React from "react";
+import Counter from "./Counter";
+
+function HoverCounter() {
+  return (
+    <Counter render={(count, increment) => (
+      <h2 onMouseOver={increment}>Hovered {count} times</h2>
+    )} />
+  );
+}
+
+export default HoverCounter;
+```
+
+## React Context(上下文)
+
+Context允许我们在组件树中跨层级传递数据，而无需通过props逐层传递。
+
+适用于主题，用户身份验证，全局状态等场景
+
+**为什么需要Context?**
+
+在没有Context的情况下 我们通常需要逐层传递Props（props drilling）
+
+```js
+<Parent>
+    <Child>
+        <GrandChild user ="Zijie"/>
+    </Child>
+</Parent>
+```
+
+如果GrandChild需要user，但Parent和Child不适用user，我们依然需要手动传递props，这很麻烦。
+
+### 创建Context
+
+UserContext.js
+
+```js
+import React from "react"
+//创建Context（默认值为‘Guest')
+const UserContext = React.createContext("Guest");
+
+export default UserContext;
+```
+
+### Provide提供数据
+
+App.js
+
+```js
+import React from "react";
+import UserContext from "./UserContext";
+import ChildComponent from "./ChildComponent";
+
+function App() {
+  return (
+    // 2️⃣ 使用 `UserContext.Provider` 提供数据
+    <UserContext.Provider value="Zijie">
+      <ChildComponent />
+    </UserContext.Provider>
+  );
+}
+
+export default App;
+```
+
+### Consumer:使用Context
+
+GrandChild.js(GrandChild 可以直接读取UserContext,不需要props传递)
+
+```js
+import React from "react";
+import UserContext from "./UserContext";
+
+function GrandChild() {
+  return (
+    // 3️⃣ 使用 `UserContext.Consumer` 读取 `Context`
+    <UserContext.Consumer>
+      {user => <h1>Hello, {user}!</h1>}
+    </UserContext.Consumer>
+  );
+}
+
+export default GrandChild;
+```
+
+### userContext()
+
+在函数组件中，我们可以使用userContext()替代Consumer
+
+```js
+import React,{useContext} from "react";
+import UserContext from "./UserContext"
+
+function GrandChild(){
+    const user = useContext(UserContext);
+    return <h1>Hello,{user}!</h1;
+}
+export default GrandChild;
+```
+
+## 组件
+
+在React中，组件可以用三种方式定义：
+
+1. 类组件
+
+2. 函数组件
+
+3. 变量存储函数组件（const Component = () => {}）
+
+Const也是函数组件
+
+在React中，函数组件本质上就是一个普通的JavaScript函数，他返回JSX，所以我们可以用function或者const来定义它：
+
+```js
+// ✅ 标准函数组件
+function Hello() {
+  return <h1>Hello, World!</h1>;
+}
+
+// ✅ 使用 `const` 创建箭头函数组件
+const Hello = () => {
+  return <h1>Hello, World!</h1>;
+};
+```
+
+两种写法是等价的，const只是让组件不能被重新赋值（不可变）
 
 
 
+## Http and React
+
+在React应用中，HTTP请求用于与后端服务器进行通信，以获取数据，提交数据等
+
+### React 处理HTTP请求的方式
+
+在React中，我们通常使用一下方式进行HTTP请求：
+
+| **方法**            | **适用场景**  | **优点**           |
+| ----------------- | --------- | ---------------- |
+| **`fetch()`**     | 轻量级请求     | 内置 API，无需安装额外库   |
+| **`axios`**       | 处理复杂请求    | 更简洁，支持自动 JSON 解析 |
+| **`react-query`** | 数据缓存与自动刷新 | 适用于数据密集型应用       |
+
+### 使用fetch进行http请求
+
+在useEffect()里获取数据
+
+```js
+import React, { useState, useEffect } from "react";
+
+function FetchExample() {
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    fetch("https://jsonplaceholder.typicode.com/posts")
+      .then(response => response.json()) // ✅ 解析 JSON
+      .then(data => setData(data.slice(0, 5))) // ✅ 只取前 5 条数据
+      .catch(error => console.error("Error:", error));
+  }, []);
+
+  return (
+    <div>
+      <h2>Posts</h2>
+      <ul>
+        {data.map(post => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default FetchExample;
+```
+
+### 使用axios进行HTTP请求
+
+Axios是一个更高级的HTTP库，比fetch更易用
+
+- 自动解析JSON
+
+- 请求和响应拦截
+
+- 取消请求
+
+- 更好的错误处理
+
+axios进行GET请求
+
+```js
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+
+function AxiosExample() {
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("https://jsonplaceholder.typicode.com/posts")
+      .then(response => setData(response.data.slice(0, 5))) // ✅ 直接获取 `response.data`
+      .catch(error => console.error("Error:", error));
+  }, []);
+
+  return (
+    <div>
+      <h2>Posts</h2>
+      <ul>
+        {data.map(post => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default AxiosExample;
+```
+
+### POST请求
+
+fetch提交数据
+
+```js
+fetch("https://jsonplaceholder.typicode.com/posts", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ title: "New Post", body: "Hello World" }),
+})
+  .then(response => response.json())
+  .then(data => console.log("Created Post:", data));
+```
+
+axios提交数据
+
+```js
+axios
+  .post("https://jsonplaceholder.typicode.com/posts", {
+    title: "New Post",
+    body: "Hello World",
+  })
+  .then(response => console.log("Created Post:", response.data));
+```
+
+### Put和Delete请求
+
+```js
+axios.put("https://jsonplaceholder.typicode.com/posts/1", {
+  title: "Updated Title",
+})
+.then(response => console.log("Updated:", response.data));
+
+//Delete
+axios.delete("https://jsonplaceholder.typicode.com/posts/1")
+  .then(response => console.log("Deleted:", response.data));
+```
+
+### 使用async/await进行异步请求
+
+```js
+async function fetchData() {
+  try {
+    const response = await axios.get("https://jsonplaceholder.typicode.com/posts");
+    console.log("Data:", response.data);
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}
+
+fetchData();
+```
+
+### React-Query(高级用法，推荐)
+
+react-query自动缓存和管理数据。适用于大型应用
+
+```js
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+
+function Posts() {
+  const { data, isLoading, error } = useQuery(["posts"], async () => {
+    const response = await axios.get("https://jsonplaceholder.typicode.com/posts");
+    return response.data;
+  });
+
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p>Error loading data</p>;
+
+  return (
+    <ul>
+      {data.slice(0, 5).map(post => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+
+export default Posts;
+
+```
+
+
+
+- 自动缓存请求
+
+- 自动重试失败请求
+
+- 自动更新UI
