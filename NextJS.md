@@ -1372,45 +1372,70 @@ Intercepting Routes允许在保持当前页面的同时，在模态框(Modal)或
 
 (...)是匹配app根目录下的
 
-文件结构:
+
+
+## Parallel Intercepting Routes(并行拦截路由)
+
+Parallel Intercepting Routes允许在同一个页面内拦截多个子路由，并将它们渲染到不同的slot中。
+
+### 创建并行拦截路由
 
 ```tsx
 app/
-  layout.tsx        # 全局布局
   dashboard/
-    page.tsx        # 主 Dashboard 页面
-    layout.tsx      # Dashboard 的布局
-    @modal/         # 并行路由 - 用于拦截模态框
-      [id]/page.tsx # 拦截 /dashboard/items/1，作为模态框
+    layout.tsx       # Dashboard 页面布局
+    page.tsx         # /dashboard 主内容
+    @sidebar/        # 并行路由 - 侧边栏
+      default.tsx    # 默认的侧边栏内容
+      profile.tsx    # /dashboard/sidebar/profile（拦截模式）
+    @modal/          # 并行路由 - 模态框
+      [id]/page.tsx  # /dashboard/modal/[id]（拦截模式）
     items/
-      [id]/page.tsx # 真实的 /dashboard/items/1 页面
-//当用户访问/dashboard/item/1，如果是在dashboard里访问，
-//会以模态框加载，但如果直接访问/dashboard/item/1，就会跳转到完整页面。
+      [id]/page.tsx  # 真实的 /dashboard/items/[id] 页面
 ```
 
-### 在layout.tsx里定义@modal处理拦截
-
-示例：app/dashboard/layout.tsx
+### layout.tsx处理并行拦截路由
 
 ```tsx
 export default function DashboardLayout({
   children,
-  modal, // 拦截的模态框
+  sidebar, // 侧边栏
+  modal,   // 模态框
 }: {
   children: React.ReactNode;
+  sidebar: React.ReactNode;
   modal: React.ReactNode;
 }) {
   return (
-    <div>
-      <h1>📊 Dashboard</h1>
-      {children} {/* 主页面内容 */}
-      {modal} {/* 这里渲染拦截的模态框 */}
+    <div style={{ display: "flex" }}>
+      <aside style={{ width: "250px", borderRight: "1px solid gray" }}>
+        {sidebar} {/* 渲染并行的侧边栏 */}
+      </aside>
+      <main style={{ flex: 1, padding: "20px" }}>
+        {children} {/* 渲染主页面内容 */}
+      </main>
+      {modal} {/* 渲染并行的模态框 */}
     </div>
   );
-}//这样modal只会在dashboard内部加载，而不会替换整个页面
+}
 ```
 
-### 在@modal/[id]/page.tsx里处理拦截
+### 侧边栏内容
+
+```tsx
+export default function DefaultSidebar() {
+  return <div>📂 侧边栏（默认）</div>;
+}
+
+export default function ProfileSidebar() {
+  return <div>👤 用户 Profile 详情</div>;
+}
+
+```
+
+### 并行拦截item/[id]作为模态框
+
+代码文件：app/dashboard/@modal/[id]/page.tsx
 
 ```tsx
 "use client";
@@ -1440,7 +1465,24 @@ export default function ItemModal({ params }: { params: { id: string } }) {
 }
 ```
 
+### 真实的/dashboard/item/[id]页面
+
+代码页面:app/dashboard/items/[id]/page.tsx(如果dashboard/items/1直接访问，他会作为完整页面加载，而不是模态框)
+
+```tsx
+export default function ItemPage({ params }: { params: { id: string } }) {
+  return (
+    <div>
+      <h1>📄 真实页面</h1>
+      <p>当前 ID：{params.id}</p>
+    </div>
+  );
+}
+```
+
 ### 在dashboard/page.tsx里链接到拦截页面
+
+代码文件:app/dashboard/page.tsx
 
 ```tsx
 import Link from "next/link";
@@ -1450,17 +1492,544 @@ export default function DashboardPage() {
     <div>
       <h1>📊 Dashboard 主页面</h1>
       <p>点击查看详情：</p>
+      <Link href="/dashboard/sidebar/profile">👤 个人信息</Link>
+      <br />
       <Link href="/dashboard/items/1">📄 访问 /dashboard/items/1</Link>
       <br />
-      <Link href="(..)/dashboard/items/1">🔍 以拦截模式打开 /dashboard/items/1</Link>
+      <Link href="(..)/dashboard/items/1">🔍 以模态框打开 /dashboard/items/1</Link>
     </div>
   );
 }
-//用户点击第一个直接跳转完整页面
-//用户点击第二个直接以模态框打开，不离开dashboard
+//点击/dashboard/sidebar/profile，侧边栏内容更新
+//点击/dashboard/items/1, 完整页面跳转
+//点击(..)/dashboard/items/1，以模态框打开
 ```
 
+## Route Handles(路由处理器)
 
+在Route Handles允许你在app/api目录下定义后端API路由，用户处理GET，POST，PUT，DELETE请求。
+
+### 创建API路由
+
+在app/api目录下，每个route.ts文件都是一个API端点
+
+文件结构
+
+```tsx
+app/
+  api/
+    hello/
+      route.ts  # /api/hello
+    users/
+      route.ts  # /api/users
+```
+
+### 处理GET请求
+
+代码文件：app/api/hello/route.ts
+
+```tsx
+export async function GET() {
+  return Response.json({ message: "Hello, Next.js API!" });
+}
+```
+
+### 处理POST请求
+
+```tsx
+export async function POST(req: Request) {
+  const body = await req.json();
+  return Response.json({ message: `用户 ${body.name} 已创建！` });
+}
+```
+
+### 处理PUT和DELETE
+
+```tsx
+export async function PUT(req: Request) {
+  const body = await req.json();
+  return Response.json({ message: `用户 ${body.id} 信息已更新！` });
+}
+
+export async function DELETE(req: Request) {
+  return Response.json({ message: "用户已删除！" });
+}
+```
+
+### 处理GET动态参数
+
+```tsx
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  return Response.json({ message: `用户 ID: ${params.id}` });
+}
+```
+
+### 处理PATCH请求
+
+代码文件：app/api/users/[id]/route.ts
+
+客户端发送PATCH请求到/api/users/123。
+
+```tsx
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const body = await req.json(); // 获取请求体
+  return Response.json({
+    message: `用户 ${params.id} 更新成功！`,
+    updatedFields: body
+  });
+}
+```
+
+或者在前端发送PATCH请求
+
+在React组件中使用fetch()
+
+```tsx
+async function updateUser() {
+  const res = await fetch("/api/users/123", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "newemail@example.com" })
+  });
+
+  const data = await res.json();
+  console.log(data);
+}
+```
+
+### 结合数据库(示例：MongoDB/Prisma)
+
+```tsx
+import { prisma } from "@/lib/prisma"; // 假设使用 Prisma
+
+export async function GET() {
+  const users = await prisma.user.findMany();
+  return Response.json(users);
+}
+```
+
+### URL Query Parameters(URL查询参数)
+
+在NextJS中，可以使用route Handlers 处理RUL查询参数
+
+#### 读取URL查询参数
+
+在Nextjs.API路由中，可以使用**req.nextUrl.searchParams**读取查询参数
+
+文件结构：
+
+```tsx
+app/
+  api/
+    users/
+      route.ts  # 处理 /api/users?role=admin
+```
+
+代码文件: app/api/users/route.ts
+
+```tsx
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const role = searchParams.get("role"); // 获取 ?role=xxx 参数
+
+  return Response.json({
+    message: `查询的角色: ${role ?? "未指定"}`,
+  });
+}
+```
+
+#### 读取多个查询参数
+
+如果url中有多个参数(如api/products?category=electronics&price=100),可以使用searchParams.get()或searchParams.getAll()读取。
+
+```tsx
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+
+  const category = searchParams.get("category"); // 获取类别
+  const price = searchParams.get("price"); // 获取价格
+
+  return Response.json({
+    category: category ?? "所有类别",
+    price: price ? Number(price) : "不限价格",
+  });
+}
+```
+
+#### 处理数组查询参数
+
+如果url中有多个相同的参数(如 `/api/tags?tag=nextjs&tag=react`)，可以使用searchParams.getAll("tag")读取。
+
+```tsx
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const tags = searchParams.getAll("tag"); // 读取所有 tag 参数
+
+  return Response.json({
+    tags: tags.length > 0 ? tags : "未提供标签",
+  });
+}
+```
+
+#### 结合POST请求处理查询参数
+
+如果在POST请求中需要同时处理 查询参数+请求体
+
+```tsx
+export async function POST(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const status = searchParams.get("status"); // 获取 ?status=xxx
+
+  const body = await req.json(); // 获取 POST 请求体
+  return Response.json({
+    status: status ?? "默认状态",
+    order: body,
+  });
+}
+```
+
+#### 在前端读取查询参数
+
+在客户端组件(use client)中，可以使用useSearchParams()读取查询参数
+
+```tsx
+"use client";
+
+import { useSearchParams } from "next/navigation";
+
+export default function ProductPage() {
+  const searchParams = useSearchParams();
+  const category = searchParams.get("category") ?? "所有类别";
+  const price = searchParams.get("price") ?? "不限价格";
+
+  return (
+    <div>
+      <h1>商品类别: {category}</h1>
+      <h2>价格: {price}</h2>
+    </div>
+  );
+}
+```
+
+## Redirects in Route Handlers
+
+### 使用redirect()进行服务器端重定向
+
+示例使用redirect("/new-url"),在app/api/redirect/route.ts里重新执行重定向
+
+```tsx
+import { redirect } from "next/navigation";
+
+export async function GET() {
+  redirect("/new-url"); // 🚀 直接跳转到新页面
+}
+```
+
+### 使用NextResponse.redirect()进行API端点重定向
+
+如果想要返回一个302或307状态码的HTTP重定向，可以使用NextResponse.redirect()
+
+```tsx
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.redirect("https://example.com", 307);
+}
+```
+
+### 在客户端useRouter().push()进行前端重定向
+
+在客户端(Client Component)进行重定向，使用useRouter().push()
+
+```tsx
+"use client";
+
+import { useRouter } from "next/navigation";
+
+export default function HomePage() {
+  const router = useRouter();
+
+  function handleRedirect() {
+    router.push("/new-url"); // 🚀 跳转到新页面
+  }
+
+  return <button onClick={handleRedirect}>跳转</button>;
+}
+//点击按钮后，页面会跳转到/new-url，但不会刷新整个页面
+```
+
+## Headers in Route Handlers
+
+可以在app/api目录下的Route Handlers (API端点)中处理HTTP Headers,包括：
+
+- 读取请求头(Request Headers)
+
+- 设置响应头（Response Headers）
+
+- 自定义CORS头
+
+### 读取请求头(Request Headers)
+
+```tsx
+export async function GET(req: Request) {
+  const userAgent = req.headers.get("user-agent");
+
+  return Response.json({
+    message: "请求头信息",
+    userAgent: userAgent ?? "未知",
+  });
+}
+```
+
+### 设置响应头（Response Headers)
+
+可以使用Response.headers.append()或new Response()自定义API返回的Headers。
+
+示例：在API响应中设置Cache-Control和X-Custom-Header
+
+```tsx
+export async function GET() {
+  const response = new Response(JSON.stringify({ message: "Hello, Next.js!" }), {
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "s-maxage=60, stale-while-revalidate", // 设置缓存 60 秒
+      "X-Custom-Header": "HelloWorld", // 自定义 Header
+    },
+  });
+
+  return response;
+}
+```
+
+### 处理 `Authorization` 头（JWT / Token 验证）
+
+```tsx
+export async function GET(req: Request) {
+  const authHeader = req.headers.get("authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "未授权" }), { status: 401 });
+  }
+
+  const token = authHeader.split(" ")[1]; // 提取 Token
+  return Response.json({ message: "成功访问", token });
+}
+```
+
+### 解析Content-Type(处理JSON/FromData)
+
+如果API需要处理不同的Content-Type,可以读取headers.get("content-type")。
+
+```tsx
+export async function POST(req: Request) {
+  const contentType = req.headers.get("content-type");
+
+  if (contentType?.includes("application/json")) {
+    const jsonBody = await req.json();
+    return Response.json({ message: "收到 JSON 数据", data: jsonBody });
+  } else if (contentType?.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    return Response.json({ message: "收到 FormData 数据", data: Object.fromEntries(formData) });
+  } else {
+    return new Response("不支持的格式", { status: 415 });
+  }
+}
+```
+
+## Cookies in Route Handlers
+
+### 读取Cookies
+
+```tsx
+import { cookies } from "next/headers";
+
+export async function GET() {
+  const userCookie = cookies().get("user");
+
+  return Response.json({
+    message: "读取 Cookies",
+    user: userCookie ? userCookie.value : "未找到",
+  });
+}
+```
+
+### 设置Cookies
+
+```tsx
+import { cookies } from "next/headers";
+
+export async function GET() {
+  cookies().set("user", "Alice", { path: "/", maxAge: 60 * 60 * 24 });
+
+  return Response.json({ message: "用户 Cookie 已设置！" });
+}
+```
+
+### 读取所有Cookies
+
+```tsx
+import { cookies } from "next/headers";
+
+export async function GET() {
+  const allCookies = cookies().getAll();
+  return Response.json({ cookies: allCookies });
+}
+```
+
+### 删除Cookies
+
+```tsx
+import { cookies } from "next/headers";
+
+export async function GET() {
+  cookies().delete("user");
+
+  return Response.json({ message: "用户 Cookie 已删除！" });
+}
+```
+
+### 设置安全Cookies(HttpOnly&Secure)
+
+```tsx
+export async function GET() {
+  cookies().set("session", "abc123", {
+    httpOnly: true, // 🚀 只能通过服务器访问，不能用 `document.cookie`
+    secure: true,   // 🚀 仅在 HTTPS 连接下发送
+    sameSite: "strict", // 🚀 防止跨站请求伪造（CSRF）
+    path: "/",
+    maxAge: 60 * 60 * 24, // 24 小时
+  });
+
+  return Response.json({ message: "安全 Cookie 已设置！" });
+}
+```
+
+### 在前端操作Cookies
+
+如果需要在客户端获取或设置Cookies，可以使用document.cookie或js-cookie
+
+```tsx
+"use client";
+
+import Cookies from "js-cookie";
+
+export default function ClientComponent() {
+  function handleSetCookie() {
+    Cookies.set("theme", "dark", { expires: 7 });
+  }
+
+  function handleGetCookie() {
+    alert(Cookies.get("theme"));
+  }
+
+  return (
+    <div>
+      <button onClick={handleSetCookie}>设置 Cookie</button>
+      <button onClick={handleGetCookie}>获取 Cookie</button>
+    </div>
+  );
+}
+```
+
+## Caching in Route Handlers(路由处理器中的缓存)
+
+### 默认缓存(Get请求自动缓存)
+
+```tsx
+export async function GET() {
+  return Response.json({ message: "Hello, Next.js API!" });
+}
+```
+
+### 禁用缓存(no-store)
+
+api每次都重新获取最新数据(如实时数据请求)，可以使用Cache-Control:no-store
+
+```tsx
+export async function GET() {
+  return new Response(JSON.stringify({ timestamp: Date.now() }), {
+    headers: { "Cache-Control": "no-store" }, // ❌ 不缓存，每次重新请求
+  });
+}
+```
+
+### 使用s-maxage进行增量静态再生(ISR缓存)
+
+如果希望API定期刷新缓存(ISR - Incremental Static Regeneration)
+
+```tsx
+export async function GET() {
+  return new Response(JSON.stringify({ message: "Cached Response" }), {
+    headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate" }, // ⏳ 缓存 60 秒
+  });
+}
+```
+
+### 使用cache()手动缓存数据
+
+```tsx
+import { cache } from "react";
+
+const getCachedData = cache(async () => {
+  console.log("Fetching Data...");
+  return { message: "This is cached data" };
+});
+
+export async function GET() {
+  const data = await getCachedData();
+  return Response.json(data);
+}
+```
+
+### 结合fetch()缓存外部API
+
+Next.js内置的fetch默认会缓存GET请求，你可以控制fetch()的缓存策略：
+
+默认缓存
+
+```tsx
+export async function GET() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts/1"); // 默认缓存
+  const data = await res.json();
+
+  return Response.json(data);
+}
+```
+
+禁用缓存
+
+```tsx
+export async function GET() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts/1", {
+    cache: "no-store", // ❌ 禁用缓存，每次都重新请求
+  });
+  const data = await res.json();
+
+  return Response.json(data);
+}
+```
+
+### 结合revalidateTag()进行手动缓存刷新
+
+如果需要在某些操作后手动刷新缓存，可以使用revalidateTag()
+
+示例：缓存/api/products，但可以在POST请求时刷新
+
+```tsx
+import { revalidateTag } from "next/cache";
+
+export async function GET() {
+  return Response.json(
+    { message: "Product list" },
+    { headers: { "Cache-Control": "s-maxage=60", "X-Next-Cache-Tag": "products" } }
+  );
+}
+
+export async function POST() {
+  revalidateTag("products"); // 🚀 清除缓存，让 `GET` 重新请求数据
+  return Response.json({ message: "Product list updated!" });
+}
+```
 
 ## Client-Side Rendering(客户端渲染)
 

@@ -9,5 +9,3 @@ class Base(DeclarativeBase):
     pass
 cl
 ```
-
-
