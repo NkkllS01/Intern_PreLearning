@@ -2027,6 +2027,173 @@ def delete_hero(hero_id: int, session: SessionDep):
     return {"ok": True}
 ```
 
+### 一套标准化DTO结构：
+
+#### 什么是DTO(fastApi中)：
+
+DTO是数据传输对象，用于：
+
+- 接受前端传来的请求数据
+
+- 返回给前端的响应数据
+
+- 和数据库模型(Model)隔离，避免暴露内部结构
+
+#### FastAPI中的DTO是用Pydantic模型实现的
+
+```yaml
+     前端请求
+        |
+        v
+  ┌────────────┐
+  │  Pydantic  │  ← DTO：用于接收请求和返回响应
+  └────────────┘
+        |
+        v
+  ┌──────────────┐
+  │ SQLAlchemy   │  ← Model：连接数据库的真实模型
+  └──────────────┘
+```
+
+SQLAlchemy模型+DTO(Pydantic)+路由整合的FastAPI项目结构代码
+
+#### 目录结构建议(按模块拆分)
+
+```yaml
+your_project/
+├── main.py
+├── database/
+│   ├── config.py           # 数据库连接字符串配置
+│   ├── session.py          # 创建 SQLAlchemy engine 和 SessionLocal
+│   └── base.py             # 声明 Base（可选）
+├── models/
+│   └── user.py             # SQLAlchemy ORM 模型
+├── dto/
+│   └── user_dto.py         # Pydantic DTO 输入输出模型
+├── crud/
+│   └── user_crud.py        # 数据访问逻辑（相当于 DAO）
+├── routes/
+│   └── user.py             # 路由：绑定接口和业务逻辑
+```
+
+#### database/config.py
+
+```python
+DATABASE_URL = "sqlite:///./test.db"  # 可换成你的 PostgreSQL 等
+```
+
+#### database/session.py
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from database.config import DATABASE_URL
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})  # SQLite 专用
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+```
+
+#### models/user.py
+
+```python
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+```
+
+#### dto/user_dto.py
+
+```python
+from pydantic import BaseModel
+
+class UserCreateDTO(BaseModel):
+    username: str
+    email: str
+
+class UserResponseDTO(BaseModel):
+    id: int
+    username: str
+    email: str
+
+    class Config:
+        orm_mode = True  # 允许从 ORM model 转换
+```
+
+#### crud/user_crud.py
+
+```python
+from sqlalchemy.orm import Session
+from models.user import User
+from dto.user_dto import UserCreateDTO
+
+def create_user(db: Session, user_dto: UserCreateDTO) -> User:
+    user = User(username=user_dto.username, email=user_dto.email)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+    return db.query(User).filter(User.id == user_id).first()
+```
+
+#### routes/user.py
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from database.session import SessionLocal
+from dto.user_dto import UserCreateDTO, UserResponseDTO
+from crud.user_crud import create_user, get_user_by_id
+
+router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.post("/users", response_model=UserResponseDTO)
+def create_user_endpoint(user: UserCreateDTO, db: Session = Depends(get_db)):
+    return create_user(db, user)
+
+@router.get("/users/{user_id}", response_model=UserResponseDTO)
+def get_user_endpoint(user_id: int, db: Session = Depends(get_db)):
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+```
+
+#### main.py
+
+```python
+from fastapi import FastAPI
+from models.user import Base
+from database.session import engine
+from routes.user import router as user_router
+
+app = FastAPI()
+
+Base.metadata.create_all(bind=engine)  # 自动建表（开发阶段）
+app.include_router(user_router)
+```
+
+#### 为什么DTO可以做到“避免暴露数据库结构，可控制字段的”呢？
+
+因为DTO定义了哪些字段，就会显示哪些字段，并不是数据库表的全部字段。
+
 ### Bigger Applications - Multiple Files(多文件结构)
 
 当FastAPI项目变复杂时，单个的main.py文件会变得难以管理，所以就需要拆分代码到多个文件中，保持清晰的项目结构。

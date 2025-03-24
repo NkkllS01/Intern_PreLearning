@@ -1719,7 +1719,6 @@ function App() {
 }
 
 export default App;
-
 ```
 
 3. BuggyComponent.js
@@ -1746,8 +1745,6 @@ class BuggyComponent extends Component {
 }
 
 export default BuggyComponent;
-
-
 ```
 
 注意：ErrorBoundary只能捕获渲染阶段的错误；生命周期方法中的错误；子组件constuructor()里的错误，它不能捕获事件处理函数中的错误；异步代码；服务端渲染SSR中的错误，自身（ErrorBoundary）组件的错误。
@@ -1790,7 +1787,7 @@ HOC主要做两件事：
 
 我们有两个不同的组件ClickCounter和HoverCounter，但他们共享相同的计数逻辑
 
-1.  创建withCoynter.js(HOC组件)
+1. 创建withCoynter.js(HOC组件)
 
 ```js
 import React, { useState } from "react";
@@ -2059,8 +2056,6 @@ const Hello = () => {
 
 两种写法是等价的，const只是让组件不能被重新赋值（不可变）
 
-
-
 ## Http and React
 
 在React应用中，HTTP请求用于与后端服务器进行通信，以获取数据，提交数据等
@@ -2232,10 +2227,7 @@ function Posts() {
 }
 
 export default Posts;
-
 ```
-
-
 
 - 自动缓存请求
 
